@@ -1,3 +1,7 @@
+def COLOR_MAP = [
+	'SUCCESS' : 'good',
+	'FAILURE' : 'danger',
+	]
 pipeline{
     agent any
     tools {
@@ -24,27 +28,20 @@ pipeline{
             steps {
                sh 'mvn clean install -U -DskipTests -Dmaven.repo.local=~/.m2/repository'
             }
-        post {
-                success {
-                    echo 'Now Archiving...'
-                    archiveArtifacts artifacts: '**/target/*.war'
-                }
-            }
-        }
 
-            stage('UNIT TEST'){
+       }
+    stage('UNIT TEST'){
             steps {
                 sh 'mvn clean install -U -DskipTests -Dmaven.repo.local=~/.m2/repository test'
             }
-        }    
-
-		
+        }
+    
         stage ('Checkstyle Analysis'){
             steps {
                 sh 'mvn clean install -U -DskipTests -Dmaven.repo.local=~/.m2/repository checkstyle:checkstyle'
             }
         }
-        stage('CODE ANALYSIS with SONARQUBE') {
+          stage('CODE ANALYSIS with SONARQUBE') {
           
 		  environment {
              scannerHome = tool "${SONARSCANNER}"
@@ -77,7 +74,7 @@ pipeline{
         protocol: 'http',
         nexusUrl: "${NEXUSIP}:${NEXUSPORT}",
         groupId: 'QA',
-        version: "${env.BUIL_ID}-${env.BUILD_TIMESTAMP}",
+        version: "${env.BUILD_ID}-${env.BUILD_TIMESTAMP}",
         repository: "${RELEASE_REPO}",
         credentialsId: "${NEXUS_LOGIN}",
         artifacts: [
@@ -89,7 +86,13 @@ pipeline{
      )
     }
    }
-  
-
+  }	
+   post{
+	always {
+		echo 'slack Notifications.'
+		slackSend channel: '#jenkinscicd',
+			color:COLOR_MAP[currentBuild.currentResult],
+			message: "*${currentBuild.currentResult}:*Job ${env.JOB_NAME} build ${env.BUILD_NUMBER} \n More info at : ${env.BUILD_URL}"
 }
+}     			          
 }
